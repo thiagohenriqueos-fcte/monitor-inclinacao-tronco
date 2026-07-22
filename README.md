@@ -39,7 +39,7 @@ Como o acelerômetro bruto é mais ruidoso que a orientação já fundida pelo s
 
 No topo do bloco `<script>` do `index.html` existem constantes que podem ser calibradas conforme o protocolo de uso:
 
-- `SINAL_BETA` / `SINAL_GAMMA`: invertem o sentido do giro da silhueta, caso pareça invertido no aparelho usado.
+- `SINAL_BETA` / `SINAL_GAMMA`: invertem o sentido da leitura (afeta o número exibido/gravado e o giro da silhueta juntos), caso pareça invertido no aparelho usado. Valor padrão atual: `-1` para os dois.
 - `SUAVIZACAO`: força do filtro passa-baixa (0–1) aplicado às leituras do acelerômetro; menor = mais suave e mais lento.
 - `FAIXA_BETA_ATENCAO`, `FAIXA_BETA_ALERTA`, `FAIXA_GAMMA_ATENCAO`, `FAIXA_GAMMA_ALERTA`: limites (em graus) que definem as faixas de cor neutro/atenção/alerta.
 - `INTERVALO_MIN_AMOSTRA_MS`: taxa de amostragem do log de gravação (padrão ~20 Hz).
