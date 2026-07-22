@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Monitor de Inclinação de Tronco</title>
+<meta name="description" content="Ferramenta independente de coleta de dados biomecânicos: monitora em tempo real a inclinação do tronco usando os sensores de orientação do celular.">
+<style>
+  :root {
+    color-scheme: dark;
+    --cor-fundo: #0b0f14;
+    --cor-painel: #131a22;
+    --cor-painel-borda: #2a3844;
+    --cor-texto: #f2f6fa;
+    --cor-texto-suave: #a9bacb;
+    --cor-acento: #4fc3ff;
+    --cor-neutro: #35d07f;
+    --cor-atencao: #ffcc33;
+    --cor-alerta: #ff5252;
+    --cor-botao: #1c2732;
+    --cor-botao-hover: #24333f;
+    --cor-botao-perigo: #4a1f24;
+    --cor-botao-perigo-hover: #5c262c;
+    --raio: 14px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--cor-fundo);
+    color: var(--cor-texto);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+
+  body {
+    padding: 12px;
+    padding-bottom: 48px;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    font-size: 1.35rem;
+    line-height: 1.3;
+    margin: 8px 0 4px;
+  }
+
+  h2 {
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--cor-texto-suave);
+    margin: 0 0 10px;
+  }
+
+  p.subtitulo {
+    margin: 0 0 18px;
+    color: var(--cor-texto-suave);
+    font-size: 0.92rem;
+  }
+
+  .aviso-independencia {
+    font-size: 0.78rem;
+    color: var(--cor-texto-suave);
+    border: 1px dashed var(--cor-painel-borda);
+    border-radius: var(--raio);
+    padding: 8px 10px;
+    margin-bottom: 18px;
+  }
+
+  section {
+    background: var(--cor-painel);
+    border: 1px solid var(--cor-painel-borda);
+    border-radius: var(--raio);
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+
+  .botoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  button {
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--cor-texto);
+    background: var(--cor-botao);
+    border: 1px solid var(--cor-painel-borda);
+    border-radius: 10px;
+    padding: 14px 16px;
+    min-height: 48px;
+    cursor: pointer;
+    flex: 1 1 auto;
+    touch-action: manipulation;
+  }
+
+  button:hover { background: var(--cor-botao-hover); }
+
+  button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  button.perigo { background: var(--cor-botao-perigo); }
+  button.perigo:hover { background: var(--cor-botao-perigo-hover); }
+
+  button.ativo {
+    outline: 2px solid var(--cor-acento);
+    outline-offset: -2px;
+  }
+
+  button:focus-visible,
+  a:focus-visible {
+    outline: 3px solid #ffffff;
+    outline-offset: 2px;
+  }
+
+  .status-msg {
+    margin-top: 10px;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    padding: 10px;
+    border-radius: 10px;
+    display: none;
+  }
+
+  .status-msg.mostrar { display: block; }
+
+  .status-msg.erro {
+    background: rgba(255, 82, 82, 0.12);
+    border: 1px solid var(--cor-alerta);
+    color: #ffd6d6;
+  }
+
+  .status-msg.ok {
+    background: rgba(53, 208, 127, 0.12);
+    border: 1px solid var(--cor-neutro);
+    color: #d3f7e4;
+  }
+
+  .painel-visualizacao {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .figura-container {
+    text-align: center;
+  }
+
+  .figura-container h3 {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--cor-texto-suave);
+    margin: 0 0 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .silhueta-svg {
+    width: 100%;
+    height: auto;
+    max-width: 160px;
+    background: #0e151b;
+    border-radius: 10px;
+    border: 1px solid var(--cor-painel-borda);
+  }
+
+  .linha-referencia {
+    stroke: #55707f;
+    stroke-width: 2;
+    stroke-dasharray: 6 6;
+  }
+
+  .figura-rotativa {
+    transform-origin: 80px 190px;
+    transition: transform 0.12s linear;
+  }
+
+  .figura-corpo {
+    fill: #cfe8ff;
+    stroke: #7fb8e6;
+    stroke-width: 1.5;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .figura-rotativa { transition: none; }
+  }
+
+  .leituras {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .leitura {
+    background: #0e151b;
+    border: 1px solid var(--cor-painel-borda);
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+  }
+
+  .leitura-rotulo {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--cor-texto-suave);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 6px;
+  }
+
+  .leitura-valor {
+    display: block;
+    font-family: "Courier New", ui-monospace, Consolas, monospace;
+    font-size: 2.1rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--cor-neutro);
+  }
+
+  .leitura-valor.nivel-atencao { color: var(--cor-atencao); }
+  .leitura-valor.nivel-alerta { color: var(--cor-alerta); }
+
+  .legenda-faixas {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    margin-top: 10px;
+    font-size: 0.72rem;
+    color: var(--cor-texto-suave);
+    flex-wrap: wrap;
+  }
+
+  .legenda-faixas span::before {
+    content: "";
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
+  .legenda-faixas .pt-neutro::before { background: var(--cor-neutro); }
+  .legenda-faixas .pt-atencao::before { background: var(--cor-atencao); }
+  .legenda-faixas .pt-alerta::before { background: var(--cor-alerta); }
+
+  .linha-gravacao {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  .cronometro {
+    font-family: "Courier New", ui-monospace, Consolas, monospace;
+    font-size: 1.8rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .contador-amostras {
+    font-size: 0.8rem;
+    color: var(--cor-texto-suave);
+  }
+
+  canvas#grafico {
+    width: 100%;
+    height: 180px;
+    background: #0e151b;
+    border: 1px solid var(--cor-painel-borda);
+    border-radius: 10px;
+    display: block;
+  }
+
+  .legenda-grafico {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+    font-size: 0.78rem;
+    color: var(--cor-texto-suave);
+  }
+
+  .legenda-grafico span::before {
+    content: "";
+    display: inline-block;
+    width: 16px;
+    height: 3px;
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+
+  .legenda-grafico .lg-beta::before { background: var(--cor-acento); }
+  .legenda-grafico .lg-gamma::before { background: #ff9f4f; }
+
+  .rodape-secao {
+    margin-top: 12px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  footer {
+    text-align: center;
+    color: var(--cor-texto-suave);
+    font-size: 0.72rem;
+    margin-top: 24px;
+  }
+
+  .campo-oculto-visivel-leitor {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+  <h1>Monitor de Inclinação de Tronco</h1>
+  <p class="subtitulo">Coleta de dados biomecânicos em tempo real a partir dos sensores de orientação do celular, para uso durante atividade física de atletas cadeirantes.</p>
+
+  <div class="aviso-independencia">
+    Esta é uma ferramenta independente e autocontida (sem dependências externas de build). Não se comunica com nenhum outro sistema, servidor ou repositório.
+  </div>
+
+  <section id="secaoSensores" aria-labelledby="tituloSensores">
+    <h2 id="tituloSensores">1. Sensores</h2>
+    <div class="botoes">
+      <button id="btnAtivar" type="button">Ativar sensores</button>
+      <button id="btnZerar" type="button" disabled>Zerar referência</button>
+    </div>
+    <div id="statusSensores" class="status-msg" role="status" aria-live="polite"></div>
+  </section>
+
+  <section aria-labelledby="tituloVisualizacao">
+    <h2 id="tituloVisualizacao">2. Visualização</h2>
+    <div class="painel-visualizacao">
+      <div class="figura-container">
+        <h3>Visão lateral (perfil)</h3>
+        <svg class="silhueta-svg" viewBox="0 0 160 220" aria-hidden="true">
+          <line x1="80" y1="14" x2="80" y2="206" class="linha-referencia"></line>
+          <g class="figura-rotativa" id="figuraLateral">
+            <circle cx="92" cy="38" r="20" class="figura-corpo"></circle>
+            <path d="M 90 56
+                     C 65 60, 50 75, 55 100
+                     C 58 120, 66 130, 64 150
+                     C 62 168, 66 185, 86 192
+                     C 104 196, 118 186, 116 168
+                     L 110 100
+                     C 108 78, 104 60, 90 56 Z" class="figura-corpo"></path>
+          </g>
+        </svg>
+      </div>
+      <div class="figura-container">
+        <h3>Visão frontal</h3>
+        <svg class="silhueta-svg" viewBox="0 0 160 220" aria-hidden="true">
+          <line x1="80" y1="14" x2="80" y2="206" class="linha-referencia"></line>
+          <g class="figura-rotativa" id="figuraFrontal">
+            <circle cx="80" cy="38" r="20" class="figura-corpo"></circle>
+            <path d="M 80 56
+                     C 50 58, 40 70, 42 95
+                     L 46 165
+                     C 46 180, 58 192, 80 192
+                     C 102 192, 114 180, 114 165
+                     L 118 95
+                     C 120 70, 110 58, 80 56 Z" class="figura-corpo"></path>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <div class="leituras" style="margin-top: 12px;">
+      <div class="leitura">
+        <span class="leitura-rotulo">Flexão / Extensão</span>
+        <span class="leitura-valor" id="valorBeta">0,0°</span>
+      </div>
+      <div class="leitura">
+        <span class="leitura-rotulo">Inclinação lateral</span>
+        <span class="leitura-valor" id="valorGamma">0,0°</span>
+      </div>
+    </div>
+
+    <div class="legenda-faixas">
+      <span class="pt-neutro">Neutro</span>
+      <span class="pt-atencao">Atenção</span>
+      <span class="pt-alerta">Alerta</span>
+    </div>
+  </section>
+
+  <section aria-labelledby="tituloGravacao">
+    <h2 id="tituloGravacao">3. Gravação</h2>
+    <div class="linha-gravacao">
+      <button id="btnGravar" type="button" disabled>Iniciar gravação</button>
+      <span class="cronometro" id="cronometro">00:00.0</span>
+      <span class="contador-amostras" id="contadorAmostras">0 amostras</span>
+    </div>
+
+    <canvas id="grafico" width="600" height="180" role="img" aria-label="Gráfico rolante com os últimos 15 segundos de flexão/extensão e inclinação lateral"></canvas>
+    <div class="legenda-grafico">
+      <span class="lg-beta">Flexão/Extensão</span>
+      <span class="lg-gamma">Inclinação lateral</span>
+    </div>
+
+    <div class="rodape-secao">
+      <button id="btnExportar" type="button" disabled>Exportar CSV</button>
+      <button id="btnDescartar" type="button" class="perigo" disabled>Descartar e recomeçar</button>
+    </div>
+  </section>
+
+  <footer>
+    Projeto independente "monitor-inclinacao-tronco". Estado mantido apenas em memória durante a sessão; nada é salvo automaticamente.
+  </footer>
+
+  <div class="campo-oculto-visivel-leitor" aria-live="polite" id="anuncioLeitorTela"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // Se a inclinação parecer invertida no aparelho usado, troque estes sinais.
+  var SINAL_BETA = 1;
+  var SINAL_GAMMA = 1;
+
+  // Faixas de cor (graus, valor absoluto). Ajustáveis conforme protocolo clínico.
+  var FAIXA_BETA_ATENCAO = 10;
+  var FAIXA_BETA_ALERTA = 25;
+  var FAIXA_GAMMA_ATENCAO = 8;
+  var FAIXA_GAMMA_ALERTA = 20;
+
+  var JANELA_GRAFICO_MS = 15000;
+  var INTERVALO_MIN_AMOSTRA_MS = 50; // ~20 Hz no log de gravação
+  var TIMEOUT_DETECCAO_MS = 2500;
+  var LIMITE_ROTACAO_VISUAL = 60; // graus, apenas para não distorcer o desenho
+
+  var btnAtivar = document.getElementById("btnAtivar");
+  var btnZerar = document.getElementById("btnZerar");
+  var statusSensores = document.getElementById("statusSensores");
+  var valorBetaEl = document.getElementById("valorBeta");
+  var valorGammaEl = document.getElementById("valorGamma");
+  var figuraLateral = document.getElementById("figuraLateral");
+  var figuraFrontal = document.getElementById("figuraFrontal");
+  var btnGravar = document.getElementById("btnGravar");
+  var cronometroEl = document.getElementById("cronometro");
+  var contadorAmostrasEl = document.getElementById("contadorAmostras");
+  var btnExportar = document.getElementById("btnExportar");
+  var btnDescartar = document.getElementById("btnDescartar");
+  var canvas = document.getElementById("grafico");
+  var ctx = canvas.getContext("2d");
+  var anuncioLeitorTela = document.getElementById("anuncioLeitorTela");
+
+  var sensoresAtivos = false;
+  var offsetBeta = 0;
+  var offsetGamma = 0;
+  var ultimoBetaBruto = null;
+  var ultimoGammaBruto = null;
+
+  var gravando = false;
+  var inicioGravacaoMs = 0;
+  var ultimoTempoAmostraMs = -Infinity;
+  var log = [];
+
+  var bufferGrafico = []; // {tMs, beta, gamma} tMs = performance.now()
+
+  function normalizarDiferenca(diferenca) {
+    var d = diferenca;
+    while (d > 180) d -= 360;
+    while (d < -180) d += 360;
+    return d;
+  }
+
+  function formatarGraus(valor) {
+    return valor.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "°";
+  }
+
+  function classificarNivel(valorAbsoluto, atencao, alerta) {
+    if (valorAbsoluto > alerta) return "nivel-alerta";
+    if (valorAbsoluto > atencao) return "nivel-atencao";
+    return "nivel-neutro";
+  }
+
+  function aplicarClasseNivel(el, nivel) {
+    el.classList.remove("nivel-neutro", "nivel-atencao", "nivel-alerta");
+    el.classList.add(nivel);
+  }
+
+  function mostrarStatus(mensagem, tipo) {
+    statusSensores.textContent = mensagem;
+    statusSensores.className = "status-msg mostrar " + tipo;
+  }
+
+  function esconderStatus() {
+    statusSensores.className = "status-msg";
+    statusSensores.textContent = "";
+  }
+
+  function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  function atualizarVisual(beta, gamma) {
+    var rotLateral = clamp(SINAL_BETA * beta, -LIMITE_ROTACAO_VISUAL, LIMITE_ROTACAO_VISUAL);
+    var rotFrontal = clamp(SINAL_GAMMA * gamma, -LIMITE_ROTACAO_VISUAL, LIMITE_ROTACAO_VISUAL);
+    figuraLateral.style.transform = "rotate(" + rotLateral + "deg)";
+    figuraFrontal.style.transform = "rotate(" + rotFrontal + "deg)";
+
+    valorBetaEl.textContent = formatarGraus(beta);
+    valorGammaEl.textContent = formatarGraus(gamma);
+
+    aplicarClasseNivel(valorBetaEl, classificarNivel(Math.abs(beta), FAIXA_BETA_ATENCAO, FAIXA_BETA_ALERTA));
+    aplicarClasseNivel(valorGammaEl, classificarNivel(Math.abs(gamma), FAIXA_GAMMA_ATENCAO, FAIXA_GAMMA_ALERTA));
+  }
+
+  function atualizarBufferGrafico(beta, gamma) {
+    var agora = performance.now();
+    bufferGrafico.push({ tMs: agora, beta: beta, gamma: gamma });
+    var limite = agora - JANELA_GRAFICO_MS;
+    while (bufferGrafico.length > 0 && bufferGrafico[0].tMs < limite) {
+      bufferGrafico.shift();
+    }
+  }
+
+  function desenharGrafico() {
+    var largura = canvas.width;
+    var altura = canvas.height;
+    ctx.clearRect(0, 0, largura, altura);
+
+    var escalaMax = 60; // graus, eixo Y fixo de -60 a 60
+    var meio = altura / 2;
+
+    // grade horizontal
+    ctx.strokeStyle = "#22303a";
+    ctx.lineWidth = 1;
+    [-40, -20, 0, 20, 40].forEach(function (g) {
+      var y = meio - (g / escalaMax) * meio;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(largura, y);
+      ctx.stroke();
+    });
+
+    ctx.strokeStyle = "#3d5163";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, meio);
+    ctx.lineTo(largura, meio);
+    ctx.stroke();
+
+    if (bufferGrafico.length > 1) {
+      var agora = performance.now();
+      var inicioJanela = agora - JANELA_GRAFICO_MS;
+
+      function tracarSerie(campo, cor) {
+        ctx.strokeStyle = cor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        var primeiro = true;
+        for (var i = 0; i < bufferGrafico.length; i++) {
+          var amostra = bufferGrafico[i];
+          var x = ((amostra.tMs - inicioJanela) / JANELA_GRAFICO_MS) * largura;
+          var valor = clamp(amostra[campo], -escalaMax, escalaMax);
+          var y = meio - (valor / escalaMax) * meio;
+          if (primeiro) {
+            ctx.moveTo(x, y);
+            primeiro = false;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.stroke();
+      }
+
+      tracarSerie("beta", "#4fc3ff");
+      tracarSerie("gamma", "#ff9f4f");
+    }
+
+    requestAnimationFrame(desenharGrafico);
+  }
+
+  function processarEvento(event) {
+    if (event.beta === null && event.gamma === null) return;
+
+    ultimoBetaBruto = event.beta || 0;
+    ultimoGammaBruto = event.gamma || 0;
+
+    var beta = normalizarDiferenca(ultimoBetaBruto - offsetBeta);
+    var gamma = normalizarDiferenca(ultimoGammaBruto - offsetGamma);
+
+    atualizarVisual(beta, gamma);
+    atualizarBufferGrafico(beta, gamma);
+
+    if (gravando) {
+      var agora = performance.now();
+      if (agora - ultimoTempoAmostraMs >= INTERVALO_MIN_AMOSTRA_MS) {
+        ultimoTempoAmostraMs = agora;
+        var t = (agora - inicioGravacaoMs) / 1000;
+        log.push({ t: t, beta: beta, gamma: gamma });
+        contadorAmostrasEl.textContent = log.length + (log.length === 1 ? " amostra" : " amostras");
+      }
+    }
+  }
+
+  function habilitarSensores() {
+    var dadosRecebidos = false;
+
+    function handler(event) {
+      if (!dadosRecebidos) {
+        dadosRecebidos = true;
+        sensoresAtivos = true;
+        mostrarStatus("Sensores ativos e recebendo dados.", "ok");
+        anuncioLeitorTela.textContent = "Sensores ativos.";
+        btnZerar.disabled = false;
+        btnGravar.disabled = false;
+      }
+      processarEvento(event);
+    }
+
+    window.addEventListener("deviceorientation", handler);
+    requestAnimationFrame(desenharGrafico);
+
+    setTimeout(function () {
+      if (!dadosRecebidos) {
+        window.removeEventListener("deviceorientation", handler);
+        mostrarStatus(
+          "Nenhum dado de orientação foi recebido do sensor. Isso costuma acontecer quando o navegador não trata esta página como uma origem segura (é preciso HTTPS real, exceto em localhost) ou quando o dispositivo não expõe o evento 'deviceorientation'. Hospede a página em HTTPS (por exemplo, via GitHub Pages) e tente novamente.",
+          "erro"
+        );
+      }
+    }, TIMEOUT_DETECCAO_MS);
+  }
+
+  function aoClicarAtivar() {
+    esconderStatus();
+
+    if (typeof DeviceOrientationEvent === "undefined") {
+      mostrarStatus("Este navegador não oferece suporte a sensores de orientação do dispositivo (DeviceOrientationEvent).", "erro");
+      return;
+    }
+
+    if (typeof DeviceOrientationEvent.requestPermission === "function") {
+      // iOS 13+: precisa ser chamado dentro de um gesto do usuário.
+      DeviceOrientationEvent.requestPermission()
+        .then(function (resposta) {
+          if (resposta === "granted") {
+            habilitarSensores();
+          } else {
+            mostrarStatus("Permissão para usar os sensores de orientação foi negada.", "erro");
+          }
+        })
+        .catch(function (erro) {
+          mostrarStatus("Não foi possível solicitar permissão dos sensores: " + erro.message, "erro");
+        });
+    } else {
+      // Android e outros: o evento é escutado diretamente, sem solicitação de permissão.
+      habilitarSensores();
+    }
+  }
+
+  function aoClicarZerar() {
+    if (ultimoBetaBruto === null || ultimoGammaBruto === null) return;
+    offsetBeta = ultimoBetaBruto;
+    offsetGamma = ultimoGammaBruto;
+    mostrarStatus("Referência zerada. A postura atual passou a ser o ponto neutro.", "ok");
+    anuncioLeitorTela.textContent = "Referência zerada.";
+  }
+
+  function formatarCronometro(segundos) {
+    var min = Math.floor(segundos / 60);
+    var seg = Math.floor(segundos % 60);
+    var decimo = Math.floor((segundos * 10) % 10);
+    function dois(n) { return n < 10 ? "0" + n : "" + n; }
+    return dois(min) + ":" + dois(seg) + "." + decimo;
+  }
+
+  var idIntervaloCronometro = null;
+
+  function atualizarCronometro() {
+    var passados = (performance.now() - inicioGravacaoMs) / 1000;
+    cronometroEl.textContent = formatarCronometro(passados);
+  }
+
+  function iniciarGravacao() {
+    gravando = true;
+    inicioGravacaoMs = performance.now();
+    ultimoTempoAmostraMs = -Infinity;
+    log = [];
+    contadorAmostrasEl.textContent = "0 amostras";
+    cronometroEl.textContent = "00:00.0";
+    btnGravar.textContent = "Parar gravação";
+    btnGravar.classList.add("ativo");
+    btnExportar.disabled = true;
+    btnDescartar.disabled = false;
+    idIntervaloCronometro = setInterval(atualizarCronometro, 100);
+  }
+
+  function pararGravacao() {
+    gravando = false;
+    clearInterval(idIntervaloCronometro);
+    btnGravar.textContent = "Iniciar gravação";
+    btnGravar.classList.remove("ativo");
+    btnExportar.disabled = log.length === 0;
+  }
+
+  function aoClicarGravar() {
+    if (!gravando) {
+      iniciarGravacao();
+    } else {
+      pararGravacao();
+    }
+  }
+
+  function aoClicarDescartar() {
+    if (gravando) pararGravacao();
+    log = [];
+    contadorAmostrasEl.textContent = "0 amostras";
+    cronometroEl.textContent = "00:00.0";
+    btnExportar.disabled = true;
+    btnDescartar.disabled = true;
+    mostrarStatus("Gravação descartada. Pronto para começar de novo.", "ok");
+    anuncioLeitorTela.textContent = "Gravação descartada.";
+  }
+
+  function aoClicarExportar() {
+    if (log.length === 0) return;
+
+    var linhas = ["tempo_s,flexao_extensao_graus,inclinacao_lateral_graus"];
+    for (var i = 0; i < log.length; i++) {
+      var a = log[i];
+      linhas.push(a.t.toFixed(3) + "," + a.beta.toFixed(2) + "," + a.gamma.toFixed(2));
+    }
+    var csv = linhas.join("\n");
+    var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var carimbo = new Date().toISOString().replace(/[:.]/g, "-");
+    var a2 = document.createElement("a");
+    a2.href = url;
+    a2.download = "monitor-inclinacao-tronco_" + carimbo + ".csv";
+    document.body.appendChild(a2);
+    a2.click();
+    document.body.removeChild(a2);
+    URL.revokeObjectURL(url);
+  }
+
+  btnAtivar.addEventListener("click", aoClicarAtivar);
+  btnZerar.addEventListener("click", aoClicarZerar);
+  btnGravar.addEventListener("click", aoClicarGravar);
+  btnDescartar.addEventListener("click", aoClicarDescartar);
+  btnExportar.addEventListener("click", aoClicarExportar);
+})();
+</script>
+</body>
+</html>
