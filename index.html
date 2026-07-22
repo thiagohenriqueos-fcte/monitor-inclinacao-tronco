@@ -61,15 +61,6 @@
     font-size: 0.92rem;
   }
 
-  .aviso-independencia {
-    font-size: 0.78rem;
-    color: var(--cor-texto-suave);
-    border: 1px dashed var(--cor-painel-borda);
-    border-radius: var(--raio);
-    padding: 8px 10px;
-    margin-bottom: 18px;
-  }
-
   section {
     background: var(--cor-painel);
     border: 1px solid var(--cor-painel-borda);
@@ -144,12 +135,14 @@
   }
 
   .painel-visualizacao {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-wrap: nowrap;
     gap: 10px;
   }
 
   .figura-container {
+    flex: 1 1 0;
+    min-width: 0;
     text-align: center;
   }
 
@@ -163,9 +156,9 @@
   }
 
   .silhueta-svg {
+    display: block;
     width: 100%;
     height: auto;
-    max-width: 160px;
     background: #0e151b;
     border-radius: 10px;
     border: 1px solid var(--cor-painel-borda);
@@ -178,7 +171,6 @@
   }
 
   .figura-rotativa {
-    transform-origin: 80px 190px;
     transition: transform 0.12s linear;
   }
 
@@ -193,12 +185,14 @@
   }
 
   .leituras {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-wrap: nowrap;
     gap: 10px;
   }
 
   .leitura {
+    flex: 1 1 0;
+    min-width: 0;
     background: #0e151b;
     border: 1px solid var(--cor-painel-borda);
     border-radius: 10px;
@@ -222,6 +216,11 @@
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: var(--cor-neutro);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 380px) {
+    .leitura-valor { font-size: 1.5rem; }
   }
 
   .leitura-valor.nivel-atencao { color: var(--cor-atencao); }
@@ -329,10 +328,6 @@
   <h1>Monitor de Inclinação de Tronco</h1>
   <p class="subtitulo">Coleta de dados biomecânicos em tempo real a partir dos sensores de orientação do celular, para uso durante atividade física de atletas cadeirantes.</p>
 
-  <div class="aviso-independencia">
-    Esta é uma ferramenta independente e autocontida (sem dependências externas de build). Não se comunica com nenhum outro sistema, servidor ou repositório.
-  </div>
-
   <section id="secaoSensores" aria-labelledby="tituloSensores">
     <h2 id="tituloSensores">1. Sensores</h2>
     <div class="botoes">
@@ -347,33 +342,33 @@
     <div class="painel-visualizacao">
       <div class="figura-container">
         <h3>Visão lateral (perfil)</h3>
-        <svg class="silhueta-svg" viewBox="0 0 160 220" aria-hidden="true">
-          <line x1="80" y1="14" x2="80" y2="206" class="linha-referencia"></line>
+        <svg class="silhueta-svg" viewBox="0 0 180 220" aria-hidden="true">
+          <line x1="90" y1="14" x2="90" y2="206" class="linha-referencia"></line>
           <g class="figura-rotativa" id="figuraLateral">
-            <circle cx="92" cy="38" r="20" class="figura-corpo"></circle>
-            <path d="M 90 56
-                     C 65 60, 50 75, 55 100
-                     C 58 120, 66 130, 64 150
-                     C 62 168, 66 185, 86 192
-                     C 104 196, 118 186, 116 168
-                     L 110 100
-                     C 108 78, 104 60, 90 56 Z" class="figura-corpo"></path>
+            <circle cx="102" cy="38" r="17" class="figura-corpo"></circle>
+            <path d="M 100 56
+                     C 75 60, 60 75, 65 100
+                     C 68 120, 76 130, 74 150
+                     C 72 168, 76 185, 96 192
+                     C 114 196, 128 186, 126 168
+                     L 120 100
+                     C 118 78, 114 60, 100 56 Z" class="figura-corpo"></path>
           </g>
         </svg>
       </div>
       <div class="figura-container">
         <h3>Visão frontal</h3>
-        <svg class="silhueta-svg" viewBox="0 0 160 220" aria-hidden="true">
-          <line x1="80" y1="14" x2="80" y2="206" class="linha-referencia"></line>
+        <svg class="silhueta-svg" viewBox="0 0 180 220" aria-hidden="true">
+          <line x1="90" y1="14" x2="90" y2="206" class="linha-referencia"></line>
           <g class="figura-rotativa" id="figuraFrontal">
-            <circle cx="80" cy="38" r="20" class="figura-corpo"></circle>
-            <path d="M 80 56
-                     C 50 58, 40 70, 42 95
-                     L 46 165
-                     C 46 180, 58 192, 80 192
-                     C 102 192, 114 180, 114 165
-                     L 118 95
-                     C 120 70, 110 58, 80 56 Z" class="figura-corpo"></path>
+            <circle cx="90" cy="38" r="17" class="figura-corpo"></circle>
+            <path d="M 90 56
+                     C 60 58, 50 70, 52 95
+                     L 56 165
+                     C 56 180, 68 192, 90 192
+                     C 112 192, 124 180, 124 165
+                     L 128 95
+                     C 130 70, 120 58, 90 56 Z" class="figura-corpo"></path>
           </g>
         </svg>
       </div>
@@ -440,7 +435,9 @@
   var JANELA_GRAFICO_MS = 15000;
   var INTERVALO_MIN_AMOSTRA_MS = 50; // ~20 Hz no log de gravação
   var TIMEOUT_DETECCAO_MS = 2500;
-  var LIMITE_ROTACAO_VISUAL = 60; // graus, apenas para não distorcer o desenho
+  var LIMITE_ROTACAO_VISUAL = 50; // graus, evita a silhueta "sair" da moldura do SVG
+  var PIVO_X = 90; // centro de rotação das silhuetas, em coordenadas do viewBox
+  var PIVO_Y = 115;
 
   var btnAtivar = document.getElementById("btnAtivar");
   var btnZerar = document.getElementById("btnZerar");
@@ -510,8 +507,8 @@
   function atualizarVisual(beta, gamma) {
     var rotLateral = clamp(SINAL_BETA * beta, -LIMITE_ROTACAO_VISUAL, LIMITE_ROTACAO_VISUAL);
     var rotFrontal = clamp(SINAL_GAMMA * gamma, -LIMITE_ROTACAO_VISUAL, LIMITE_ROTACAO_VISUAL);
-    figuraLateral.style.transform = "rotate(" + rotLateral + "deg)";
-    figuraFrontal.style.transform = "rotate(" + rotFrontal + "deg)";
+    figuraLateral.setAttribute("transform", "rotate(" + rotLateral + " " + PIVO_X + " " + PIVO_Y + ")");
+    figuraFrontal.setAttribute("transform", "rotate(" + rotFrontal + " " + PIVO_X + " " + PIVO_Y + ")");
 
     valorBetaEl.textContent = formatarGraus(beta);
     valorGammaEl.textContent = formatarGraus(gamma);
