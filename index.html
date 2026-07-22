@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Monitor de Inclinação de Tronco</title>
-<meta name="description" content="Ferramenta independente de coleta de dados biomecânicos: monitora em tempo real a inclinação do tronco usando os sensores de orientação do celular.">
+<meta name="description" content="Ferramenta independente de coleta de dados biomecânicos: monitora em tempo real a inclinação do tronco usando o acelerômetro do celular.">
 <style>
   :root {
     color-scheme: dark;
@@ -341,7 +341,7 @@
     <h2 id="tituloVisualizacao">2. Visualização</h2>
     <div class="painel-visualizacao">
       <div class="figura-container">
-        <h3>Visão lateral (perfil)</h3>
+        <h3>Visão lateral</h3>
         <svg class="silhueta-svg" viewBox="0 0 180 220" aria-hidden="true">
           <line x1="90" y1="14" x2="90" y2="206" class="linha-referencia"></line>
           <g class="figura-rotativa" id="figuraLateral">
@@ -426,6 +426,11 @@
   var SINAL_BETA = 1;
   var SINAL_GAMMA = 1;
 
+  // Fator do filtro passa-baixa (0-1) aplicado aos ângulos calculados a
+  // partir do acelerômetro bruto, para atenuar o ruído/vibração típico de
+  // atividade física. Menor = mais suave (e mais lento para reagir).
+  var SUAVIZACAO = 0.25;
+
   // Faixas de cor (graus, valor absoluto). Ajustáveis conforme protocolo clínico.
   var FAIXA_BETA_ATENCAO = 10;
   var FAIXA_BETA_ALERTA = 25;
@@ -460,6 +465,8 @@
   var offsetGamma = 0;
   var ultimoBetaBruto = null;
   var ultimoGammaBruto = null;
+  var betaSuavizado = null;
+  var gammaSuavizado = null;
 
   var gravando = false;
   var inicioGravacaoMs = 0;
@@ -584,32 +591,53 @@
   }
 
   function processarEvento(event) {
-    if (event.beta === null && event.gamma === null) return;
+    var g = event.accelerationIncludingGravity;
+    if (!g || (g.x === null && g.y === null && g.z === null)) return;
 
-    ultimoBetaBruto = event.beta || 0;
-    ultimoGammaBruto = event.gamma || 0;
+    var gx = g.x || 0;
+    var gy = g.y || 0;
+    var gz = g.z || 0;
 
-    var beta = normalizarDiferenca(ultimoBetaBruto - offsetBeta);
-    var gamma = normalizarDiferenca(ultimoGammaBruto - offsetGamma);
+    // Ângulos calculados diretamente do vetor de gravidade (atan2), e não a
+    // partir de alpha/beta/gamma do DeviceOrientationEvent: com o celular na
+    // vertical (o caso de uso aqui, preso ao peito em portrait), a
+    // decomposição de Euler usada por esse evento degenera perto de
+    // beta=90° e faz a leitura de inclinação lateral (gamma) virar ruído
+    // sem sentido. O acelerômetro bruto não tem esse problema.
+    ultimoBetaBruto = Math.atan2(gz, gy) * 180 / Math.PI;
+    ultimoGammaBruto = Math.atan2(gx, gy) * 180 / Math.PI;
 
-    atualizarVisual(beta, gamma);
-    atualizarBufferGrafico(beta, gamma);
+    var betaBruto = normalizarDiferenca(ultimoBetaBruto - offsetBeta);
+    var gammaBruto = normalizarDiferenca(ultimoGammaBruto - offsetGamma);
+
+    betaSuavizado = betaSuavizado === null ? betaBruto : betaSuavizado + SUAVIZACAO * (betaBruto - betaSuavizado);
+    gammaSuavizado = gammaSuavizado === null ? gammaBruto : gammaSuavizado + SUAVIZACAO * (gammaBruto - gammaSuavizado);
+
+    atualizarVisual(betaSuavizado, gammaSuavizado);
+    atualizarBufferGrafico(betaSuavizado, gammaSuavizado);
 
     if (gravando) {
       var agora = performance.now();
       if (agora - ultimoTempoAmostraMs >= INTERVALO_MIN_AMOSTRA_MS) {
         ultimoTempoAmostraMs = agora;
         var t = (agora - inicioGravacaoMs) / 1000;
-        log.push({ t: t, beta: beta, gamma: gamma });
+        log.push({ t: t, beta: betaSuavizado, gamma: gammaSuavizado });
         contadorAmostrasEl.textContent = log.length + (log.length === 1 ? " amostra" : " amostras");
       }
     }
+  }
+
+  function temLeituraValida(event) {
+    var g = event.accelerationIncludingGravity;
+    return !!g && (g.x !== null || g.y !== null || g.z !== null);
   }
 
   function habilitarSensores() {
     var dadosRecebidos = false;
 
     function handler(event) {
+      if (!temLeituraValida(event)) return;
+
       if (!dadosRecebidos) {
         dadosRecebidos = true;
         sensoresAtivos = true;
@@ -621,14 +649,14 @@
       processarEvento(event);
     }
 
-    window.addEventListener("deviceorientation", handler);
+    window.addEventListener("devicemotion", handler);
     requestAnimationFrame(desenharGrafico);
 
     setTimeout(function () {
       if (!dadosRecebidos) {
-        window.removeEventListener("deviceorientation", handler);
+        window.removeEventListener("devicemotion", handler);
         mostrarStatus(
-          "Nenhum dado de orientação foi recebido do sensor. Isso costuma acontecer quando o navegador não trata esta página como uma origem segura (é preciso HTTPS real, exceto em localhost) ou quando o dispositivo não expõe o evento 'deviceorientation'. Hospede a página em HTTPS (por exemplo, via GitHub Pages) e tente novamente.",
+          "Nenhum dado de movimento foi recebido do sensor. Isso costuma acontecer quando o navegador não trata esta página como uma origem segura (é preciso HTTPS real, exceto em localhost) ou quando o dispositivo não expõe o evento 'devicemotion'. Hospede a página em HTTPS (por exemplo, via GitHub Pages) e tente novamente.",
           "erro"
         );
       }
@@ -638,19 +666,19 @@
   function aoClicarAtivar() {
     esconderStatus();
 
-    if (typeof DeviceOrientationEvent === "undefined") {
-      mostrarStatus("Este navegador não oferece suporte a sensores de orientação do dispositivo (DeviceOrientationEvent).", "erro");
+    if (typeof DeviceMotionEvent === "undefined") {
+      mostrarStatus("Este navegador não oferece suporte a sensores de movimento do dispositivo (DeviceMotionEvent).", "erro");
       return;
     }
 
-    if (typeof DeviceOrientationEvent.requestPermission === "function") {
+    if (typeof DeviceMotionEvent.requestPermission === "function") {
       // iOS 13+: precisa ser chamado dentro de um gesto do usuário.
-      DeviceOrientationEvent.requestPermission()
+      DeviceMotionEvent.requestPermission()
         .then(function (resposta) {
           if (resposta === "granted") {
             habilitarSensores();
           } else {
-            mostrarStatus("Permissão para usar os sensores de orientação foi negada.", "erro");
+            mostrarStatus("Permissão para usar os sensores de movimento foi negada.", "erro");
           }
         })
         .catch(function (erro) {
@@ -666,6 +694,8 @@
     if (ultimoBetaBruto === null || ultimoGammaBruto === null) return;
     offsetBeta = ultimoBetaBruto;
     offsetGamma = ultimoGammaBruto;
+    betaSuavizado = 0;
+    gammaSuavizado = 0;
     mostrarStatus("Referência zerada. A postura atual passou a ser o ponto neutro.", "ok");
     anuncioLeitorTela.textContent = "Referência zerada.";
   }
